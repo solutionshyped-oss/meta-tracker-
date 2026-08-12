@@ -94,4 +94,4 @@ export default async function handler(request, response) {
       error: "Tracker failed"
     });
   }
-
+}
