@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meta Tracker</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #111827;
+    }
+    header {
+      background: #111827;
+      color: white;
+      padding: 20px 24px;
+    }
+    header h1 { margin: 0; font-size: 24px; }
+    header p { margin: 6px 0 0; color: #cbd5e1; }
+    main {
+      max-width: 1100px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    }
+    .label { color: #64748b; font-size: 14px; }
+    .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
+    .panel {
+      background: white;
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+    th, td {
+      text-align: left;
+      padding: 14px 10px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    th { color: #64748b; font-size: 13px; }
+    .empty {
+      text-align: center;
+      padding: 40px 10px;
+      color: #64748b;
+    }
+    @media (max-width: 700px) {
+      .cards { grid-template-columns: 1fr; }
+      main { margin-top: 20px; }
+      .panel { overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Meta Tracker</h1>
+    <p>Meta Ads → Tracking → Telegram</p>
+  </header>
+
+  <main>
+    <section class="cards">
+      <div class="card">
+        <div class="label">Clicks</div>
+        <div class="value" id="clicks">0</div>
+      </div>
+      <div class="card">
+        <div class="label">Telegram Joins</div>
+        <div class="value" id="joins">0</div>
+      </div>
+      <div class="card">
+        <div class="label">Conversion Rate</div>
+        <div class="value" id="rate">0%</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Campaigns</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Campaign</th>
+            <th>Clicks</th>
+            <th>Joins</th>
+            <th>Conversion Rate</th>
+          </tr>
+        </thead>
+        <tbody id="campaigns">
+          <tr>
+            <td colspan="4" class="empty">
+              No tracking data yet. Connect the API/database to display live data.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    // This is the initial dashboard UI.
+    // Live Meta/Telegram tracking will be connected through the backend endpoints
+    // in the next step.
+    const clicks = 0;
+    const joins = 0;
+
+    document.getElementById("clicks").textContent = clicks;
+    document.getElementById("joins").textContent = joins;
+    document.getElementById("rate").textContent =
+      clicks > 0 ? ((joins / clicks) * 100).toFixed(1) + "%" : "0%";
+  </script>
+</body>
+</html>
