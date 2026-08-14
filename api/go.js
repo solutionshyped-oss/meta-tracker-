@@ -5,198 +5,280 @@ export default async function handler(request, response) {
       `https://${request.headers.host}`
     );
 
-    // Create tracking ID
+    // ==========================================
+    // 1. CREATE UNIQUE TRACKING ID
+    // ==========================================
+
     const trackingId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : Date.now().toString(36) +
-          Math.random().toString(36).slice(2);
+          Math.random().toString(36).slice(2));
 
-    // Collect Meta / UTM data
+    // ==========================================
+    // 2. COLLECT META / UTM INFORMATION
+    // ==========================================
+
     const data = {
       tracking_id: trackingId,
       timestamp: new Date().toISOString(),
-      fbclid: url.searchParams.get("fbclid"),
-      utm_source: url.searchParams.get("utm_source"),
-      utm_medium: url.searchParams.get("utm_medium"),
-      utm_campaign: url.searchParams.get("utm_campaign"),
-      utm_content: url.searchParams.get("utm_content"),
-      utm_term: url.searchParams.get("utm_term")
+
+      fbclid:
+        url.searchParams.get("fbclid"),
+
+      utm_source:
+        url.searchParams.get("utm_source"),
+
+      utm_medium:
+        url.searchParams.get("utm_medium"),
+
+      utm_campaign:
+        url.searchParams.get("utm_campaign"),
+
+      utm_content:
+        url.searchParams.get("utm_content"),
+
+      utm_term:
+        url.searchParams.get("utm_term")
     };
 
-    const redisUrl = process.env.KV_REST_API_URL;
-    const redisToken = process.env.KV_REST_API_TOKEN;
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    console.log(
+      "META TRACKER CLICK:",
+      data
+    );
+
+    // ==========================================
+    // 3. VERCEL ENVIRONMENT VARIABLES
+    // ==========================================
+
+    const redisUrl =
+      process.env.KV_REST_API_URL;
+
+    const redisToken =
+      process.env.KV_REST_API_TOKEN;
+
+    const botToken =
+      process.env.TELEGRAM_BOT_TOKEN;
 
     // Your Telegram channel ID
-    const channelId = "-1001986231339";
+    const channelId =
+      "-1001986231339";
 
-    if (!redisUrl || !redisToken || !botToken) {
-      console.error("Missing environment variables");
+    // ==========================================
+    // 4. CHECK CONFIGURATION
+    // ==========================================
+
+    if (
+      !redisUrl ||
+      !redisToken ||
+      !botToken
+    ) {
+      console.error(
+        "Required environment variables are missing"
+      );
 
       return response.status(500).json({
         success: false,
-        error: "Tracker configuration is incomplete"
+        error:
+          "Tracker configuration is incomplete"
       });
     }
 
-    console.log("META TRACKER CLICK:", data);
+    // ==========================================
+    // 5. CREATE TELEGRAM INVITE
+    //    WITH REQUEST TO JOIN
+    // ==========================================
 
-    // --------------------------------------------------
-    // CREATE TELEGRAM INVITE
-    // --------------------------------------------------
+    const telegramResponse =
+      await fetch(
+        `https://api.telegram.org/bot${botToken}/createChatInviteLink`,
+        {
+          method: "POST",
 
-    const telegramResponse = await fetch(
-      `https://api.telegram.org/bot${botToken}/createChatInviteLink`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          chat_id: channelId,
-          name: `trk_${trackingId.slice(0, 20)}`,
-          creates_join_request: false
-        })
-      }
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body: JSON.stringify({
+            chat_id: channelId,
+
+            name:
+              `trk_${trackingId.slice(0, 20)}`,
+
+            /*
+             * IMPORTANT
+             *
+             * TRUE = USER MUST REQUEST TO JOIN
+             *
+             * You will approve the request
+             * from Telegram.
+             */
+            creates_join_request: true
+          })
+        }
+      );
+
+    const telegramResult =
+      await telegramResponse.json();
+
+    if (
+      !telegramResponse.ok ||
+      !telegramResult.ok
+    ) {
+      console.error(
+        "Telegram invite creation error:",
+        telegramResult
+      );
+
+      return response.status(500).json({
+        success: false,
+        error:
+          "Failed to create Telegram request link"
+      });
+    }
+
+    const inviteLink =
+      telegramResult.result.invite_link;
+
+    console.log(
+      "TELEGRAM REQUEST INVITE CREATED:",
+      inviteLink
     );
 
-    const telegramResult = await telegramResponse.json();
+    // ==========================================
+    // 6. SAVE CLICK DATA TO REDIS
+    // ==========================================
 
-    if (!telegramResponse.ok || !telegramResult.ok) {
-      console.error("Telegram invite error:", telegramResult);
+    const clickResponse =
+      await fetch(
+        `${redisUrl}/set/click:${trackingId}`,
+        {
+          method: "POST",
 
-      return response.status(500).json({
-        success: false,
-        error: "Failed to create Telegram invite"
-      });
-    }
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`,
 
-    const inviteLink = telegramResult.result.invite_link;
+            "Content-Type":
+              "application/json"
+          },
 
-    console.log("TELEGRAM INVITE CREATED:", inviteLink);
-
-    // --------------------------------------------------
-    // EXTRACT INVITE CODE
-    // --------------------------------------------------
-
-    let inviteCode = "";
-
-    if (inviteLink.includes("/+")) {
-      inviteCode = inviteLink.split("/+")[1];
-    } else if (inviteLink.includes("/joinchat/")) {
-      inviteCode = inviteLink.split("/joinchat/")[1];
-    }
-
-    if (!inviteCode) {
-      console.error("Could not extract invite code:", inviteLink);
-
-      return response.status(500).json({
-        success: false,
-        error: "Could not extract Telegram invite code"
-      });
-    }
-
-    console.log("INVITE CODE:", inviteCode);
-
-    // --------------------------------------------------
-    // SAVE CLICK DATA
-    // --------------------------------------------------
-
-    const clickResponse = await fetch(
-      `${redisUrl}/set/click:${encodeURIComponent(trackingId)}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-      }
-    );
+          body:
+            JSON.stringify(data)
+        }
+      );
 
     if (!clickResponse.ok) {
+
+      const redisError =
+        await clickResponse.text();
+
       console.error(
         "Redis click error:",
-        await clickResponse.text()
+        redisError
       );
 
       return response.status(500).json({
         success: false,
-        error: "Failed to save click"
+        error:
+          "Failed to save click"
       });
     }
 
-    // --------------------------------------------------
-    // IMPORTANT:
-    // SAVE USING INVITE CODE
-    // --------------------------------------------------
+    // ==========================================
+    // 7. SAVE INVITE → TRACKING ID
+    // ==========================================
 
     const inviteKey =
-      `invite_code:${encodeURIComponent(inviteCode)}`;
+      `invite:${encodeURIComponent(inviteLink)}`;
 
-    const inviteResponse = await fetch(
-      `${redisUrl}/set/${inviteKey}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`,
-          "Content-Type": "application/json"
-        },
-        body: trackingId
-      }
-    );
+    const inviteResponse =
+      await fetch(
+        `${redisUrl}/set/${inviteKey}`,
+        {
+          method: "POST",
+
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`,
+
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            trackingId
+        }
+      );
 
     if (!inviteResponse.ok) {
+
+      const redisError =
+        await inviteResponse.text();
+
       console.error(
         "Redis invite mapping error:",
-        await inviteResponse.text()
+        redisError
       );
 
       return response.status(500).json({
         success: false,
-        error: "Failed to save invite mapping"
+        error:
+          "Failed to save invite mapping"
       });
     }
 
     console.log(
-      "INVITE CODE MAPPED TO TRACKING ID:",
+      "INVITE MAPPED TO TRACKING ID:",
       trackingId
     );
 
-    // --------------------------------------------------
-    // INCREMENT CLICKS
-    // --------------------------------------------------
+    // ==========================================
+    // 8. INCREMENT TOTAL CLICKS
+    // ==========================================
 
-    const incrementResponse = await fetch(
-      `${redisUrl}/incr/total_clicks`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`
+    const incrementResponse =
+      await fetch(
+        `${redisUrl}/incr/total_clicks`,
+        {
+          method: "POST",
+
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`
+          }
         }
-      }
-    );
+      );
 
     if (!incrementResponse.ok) {
+
       console.error(
         "Failed to increment total clicks:",
         await incrementResponse.text()
       );
     }
 
-    // --------------------------------------------------
-    // SEND USER TO TELEGRAM
-    // --------------------------------------------------
+    // ==========================================
+    // 9. REDIRECT USER TO TELEGRAM
+    // ==========================================
 
-    return response.redirect(302, inviteLink);
+    return response.redirect(
+      302,
+      inviteLink
+    );
 
   } catch (error) {
-    console.error("TRACKER ERROR:", error);
+
+    console.error(
+      "TRACKER ERROR:",
+      error
+    );
 
     return response.status(500).json({
       success: false,
-      error: "Tracker failed"
+      error:
+        "Tracker failed"
     });
   }
 }
