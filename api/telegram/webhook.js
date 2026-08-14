@@ -1,12 +1,13 @@
 export default async function handler(request, response) {
-  if (request.method !== "POST") {
-    return response.status(200).json({
-      ok: true,
-      message: "Telegram webhook is running"
-    });
-  }
-
   try {
+    // Telegram sends POST requests
+    if (request.method !== "POST") {
+      return response.status(200).json({
+        ok: true,
+        message: "Telegram webhook is running"
+      });
+    }
+
     const update = request.body;
 
     console.log(
@@ -14,111 +15,66 @@ export default async function handler(request, response) {
       JSON.stringify(update)
     );
 
-    // Only process chat_member updates
-    if (!update || !update.chat_member) {
-      return response.status(200).json({
-        ok: true
-      });
-    }
+    // --------------------------------------------------
+    // ONLY PROCESS CHAT MEMBER UPDATES
+    // --------------------------------------------------
 
-    const chatMember =
-      update.chat_member;
+    const chatMember = update?.chat_member;
 
-    const chat =
-      chatMember.chat;
-
-    // Your Telegram channel ID
-    const channelId =
-      "-1001986231339";
-
-    // Make sure this is your channel
-    if (
-      !chat ||
-      String(chat.id) !== channelId
-    ) {
-      console.log(
-        "IGNORED: Different Telegram chat"
-      );
-
+    if (!chatMember) {
       return response.status(200).json({
         ok: true,
-        ignored: true
+        message: "No chat_member update"
       });
     }
 
     // --------------------------------------------------
-    // 1. DETECT JOIN
-    // --------------------------------------------------
-
-    const oldStatus =
-      chatMember.old_chat_member?.status;
-
-    const newStatus =
-      chatMember.new_chat_member?.status;
-
-    const isJoin =
-      (
-        oldStatus === "left" ||
-        oldStatus === "kicked" ||
-        oldStatus === undefined
-      ) &&
-      (
-        newStatus === "member" ||
-        newStatus === "administrator"
-      );
-
-    if (!isJoin) {
-      return response.status(200).json({
-        ok: true,
-        ignored: true
-      });
-    }
-
-    console.log(
-      "TELEGRAM JOIN DETECTED"
-    );
-
-    // --------------------------------------------------
-    // 2. GET INVITE LINK
+    // GET INVITE LINK USED BY USER
     // --------------------------------------------------
 
     const inviteLink =
-      chatMember.invite_link?.invite_link;
+      chatMember.invite_link;
 
     if (!inviteLink) {
       console.log(
-        "JOIN DETECTED BUT NO INVITE LINK FOUND"
+        "NO INVITE LINK FOUND IN TELEGRAM UPDATE"
       );
 
       return response.status(200).json({
         ok: true,
-        join: true,
-        tracking_id: null,
-        reason: "No invite link"
+        message: "No invite link"
       });
     }
 
     console.log(
       "TELEGRAM INVITE LINK:",
-      inviteLink
+      JSON.stringify(inviteLink)
     );
 
     // --------------------------------------------------
-    // 3. EXTRACT SAME INVITE CODE USED BY go.js
+    // EXTRACT INVITE CODE
     // --------------------------------------------------
 
-    const inviteCode =
-      inviteLink.split("/").pop();
+    let inviteCode = "";
+
+    if (inviteLink.invite_link) {
+      const fullLink = inviteLink.invite_link;
+
+      if (fullLink.includes("/+")) {
+        inviteCode = fullLink.split("/+")[1];
+      } else if (fullLink.includes("/joinchat/")) {
+        inviteCode = fullLink.split("/joinchat/")[1];
+      }
+    }
 
     if (!inviteCode) {
       console.log(
-        "COULD NOT EXTRACT INVITE CODE"
+        "NO INVITE CODE FOUND"
       );
 
       return response.status(200).json({
         ok: true,
-        join: true,
-        tracking_id: null
+        message: "No invite code"
       });
     }
 
@@ -128,7 +84,7 @@ export default async function handler(request, response) {
     );
 
     // --------------------------------------------------
-    // 4. REDIS CONFIGURATION
+    // REDIS
     // --------------------------------------------------
 
     const redisUrl =
@@ -139,59 +95,53 @@ export default async function handler(request, response) {
 
     if (!redisUrl || !redisToken) {
       console.error(
-        "Redis environment variables are missing"
+        "Redis environment variables missing"
       );
 
       return response.status(500).json({
         ok: false,
-        error: "Redis is not configured"
+        error: "Redis configuration missing"
       });
     }
 
     // --------------------------------------------------
-    // 5. LOOK UP TRACKING ID
+    // FIND TRACKING ID
     // --------------------------------------------------
 
-    const encodedInviteCode =
-      encodeURIComponent(inviteCode);
+    const inviteKey =
+      `invite_code:${encodeURIComponent(inviteCode)}`;
 
-    const redisResponse =
-      await fetch(
-        `${redisUrl}/get/invite_code:${encodedInviteCode}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`
-          }
+    const trackingResponse = await fetch(
+      `${redisUrl}/get/${inviteKey}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${redisToken}`
         }
-      );
-
-    if (!redisResponse.ok) {
-      const errorText =
-        await redisResponse.text();
-
-      console.error(
-        "Redis lookup failed:",
-        errorText
-      );
-
-      return response.status(500).json({
-        ok: false,
-        error: "Redis lookup failed"
-      });
-    }
-
-    const redisData =
-      await redisResponse.json();
-
-    console.log(
-      "REDIS LOOKUP RESULT:",
-      redisData
+      }
     );
 
+    if (!trackingResponse.ok) {
+      console.error(
+        "Redis lookup error:",
+        await trackingResponse.text()
+      );
+
+      return response.status(200).json({
+        ok: true,
+        message: "Redis lookup failed"
+      });
+    }
+
+    const trackingResult =
+      await trackingResponse.json();
+
     const trackingId =
-      redisData.result;
+      trackingResult.result;
+
+    // --------------------------------------------------
+    // NO TRACKING ID
+    // --------------------------------------------------
 
     if (!trackingId) {
       console.log(
@@ -201,45 +151,46 @@ export default async function handler(request, response) {
 
       return response.status(200).json({
         ok: true,
-        join: true,
-        tracking_id: null,
-        reason: "Invite code not found"
+        message: "No tracking ID found"
       });
     }
 
     console.log(
-      "TELEGRAM JOIN MATCHED:",
+      "TRACKING ID FOUND:",
       trackingId
     );
 
     // --------------------------------------------------
-    // 6. COLLECT TELEGRAM USER DATA
+    // GET USER INFORMATION
     // --------------------------------------------------
 
     const user =
-      chatMember.new_chat_member?.user || {};
+      chatMember.new_chat_member?.user ||
+      chatMember.from;
+
+    const userId =
+      user?.id || null;
+
+    const username =
+      user?.username || null;
+
+    const firstName =
+      user?.first_name || null;
+
+    const joinedAt =
+      new Date().toISOString();
+
+    // --------------------------------------------------
+    // SAVE JOIN DATA
+    // --------------------------------------------------
 
     const joinData = {
       tracking_id: trackingId,
-      joined_at: new Date().toISOString(),
-
-      telegram_user_id:
-        user.id || null,
-
-      telegram_username:
-        user.username || null,
-
-      telegram_first_name:
-        user.first_name || null,
-
-      channel_id:
-        channelId,
-
-      invite_link:
-        inviteLink,
-
-      invite_code:
-        inviteCode
+      invite_code: inviteCode,
+      telegram_user_id: userId,
+      telegram_username: username,
+      first_name: firstName,
+      joined_at: joinedAt
     };
 
     console.log(
@@ -247,72 +198,54 @@ export default async function handler(request, response) {
       joinData
     );
 
-    // --------------------------------------------------
-    // 7. SAVE JOIN TO REDIS
-    // --------------------------------------------------
-
-    const joinResponse =
-      await fetch(
-        `${redisUrl}/set/join:${trackingId}`,
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`,
-            "Content-Type":
-              "application/json"
-          },
-          body: JSON.stringify(joinData)
-        }
-      );
+    const joinResponse = await fetch(
+      `${redisUrl}/set/join:${encodeURIComponent(trackingId)}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${redisToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(joinData)
+      }
+    );
 
     if (!joinResponse.ok) {
-      const errorText =
-        await joinResponse.text();
-
       console.error(
-        "Failed to save Telegram join:",
-        errorText
+        "Redis join save error:",
+        await joinResponse.text()
       );
-
-      return response.status(500).json({
-        ok: false,
-        error: "Failed to save Telegram join"
-      });
     }
 
     // --------------------------------------------------
-    // 8. INCREMENT TOTAL JOINS
+    // INCREMENT TOTAL JOINS
     // --------------------------------------------------
 
-    const incrementResponse =
-      await fetch(
-        `${redisUrl}/incr/total_joins`,
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`
-          }
+    const incrementResponse = await fetch(
+      `${redisUrl}/incr/total_joins`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${redisToken}`
         }
-      );
+      }
+    );
 
     if (!incrementResponse.ok) {
       console.error(
-        "Failed to increment total joins:",
+        "Failed to increment joins:",
         await incrementResponse.text()
       );
     }
 
-    console.log(
-      "TELEGRAM JOIN SAVED SUCCESSFULLY:",
-      trackingId
-    );
+    // --------------------------------------------------
+    // SUCCESS
+    // --------------------------------------------------
 
     return response.status(200).json({
       ok: true,
-      join: true,
-      tracking_id: trackingId
+      tracking_id: trackingId,
+      invite_code: inviteCode
     });
 
   } catch (error) {
