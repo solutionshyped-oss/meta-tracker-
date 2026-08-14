@@ -1,131 +1,74 @@
-export default async function handler(request, response) {
+module.exports = async function handler(request, response) {
   try {
     const url = new URL(
       request.url,
       `https://${request.headers.host}`
     );
 
-    // ==========================================
-    // 1. CREATE UNIQUE TRACKING ID
-    // ==========================================
-
+    // Create unique tracking ID
     const trackingId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : Date.now().toString(36) +
-          Math.random().toString(36).slice(2));
+          Math.random().toString(36).slice(2);
 
-    // ==========================================
-    // 2. COLLECT META / UTM INFORMATION
-    // ==========================================
-
+    // Collect Meta / UTM information
     const data = {
       tracking_id: trackingId,
       timestamp: new Date().toISOString(),
-
-      fbclid:
-        url.searchParams.get("fbclid"),
-
-      utm_source:
-        url.searchParams.get("utm_source"),
-
-      utm_medium:
-        url.searchParams.get("utm_medium"),
-
-      utm_campaign:
-        url.searchParams.get("utm_campaign"),
-
-      utm_content:
-        url.searchParams.get("utm_content"),
-
-      utm_term:
-        url.searchParams.get("utm_term")
+      fbclid: url.searchParams.get("fbclid"),
+      utm_source: url.searchParams.get("utm_source"),
+      utm_medium: url.searchParams.get("utm_medium"),
+      utm_campaign: url.searchParams.get("utm_campaign"),
+      utm_content: url.searchParams.get("utm_content"),
+      utm_term: url.searchParams.get("utm_term")
     };
 
-    console.log(
-      "META TRACKER CLICK:",
-      data
-    );
+    console.log("META TRACKER CLICK:", data);
 
-    // ==========================================
-    // 3. VERCEL ENVIRONMENT VARIABLES
-    // ==========================================
+    // Environment variables
+    const redisUrl = process.env.KV_REST_API_URL;
+    const redisToken = process.env.KV_REST_API_TOKEN;
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    const redisUrl =
-      process.env.KV_REST_API_URL;
+    // Telegram channel ID
+    const channelId = "-1001986231339";
 
-    const redisToken =
-      process.env.KV_REST_API_TOKEN;
-
-    const botToken =
-      process.env.TELEGRAM_BOT_TOKEN;
-
-    // Your Telegram channel ID
-    const channelId =
-      "-1001986231339";
-
-    // ==========================================
-    // 4. CHECK CONFIGURATION
-    // ==========================================
-
-    if (
-      !redisUrl ||
-      !redisToken ||
-      !botToken
-    ) {
-      console.error(
-        "Required environment variables are missing"
-      );
+    // Check configuration
+    if (!redisUrl || !redisToken || !botToken) {
+      console.error("Required environment variables are missing");
 
       return response.status(500).json({
         success: false,
-        error:
-          "Tracker configuration is incomplete"
+        error: "Tracker configuration is incomplete"
       });
     }
 
     // ==========================================
-    // 5. CREATE TELEGRAM INVITE
-    //    WITH REQUEST TO JOIN
+    // CREATE TELEGRAM REQUEST-TO-JOIN LINK
     // ==========================================
 
-    const telegramResponse =
-      await fetch(
-        `https://api.telegram.org/bot${botToken}/createChatInviteLink`,
-        {
-          method: "POST",
+    const telegramResponse = await fetch(
+      `https://api.telegram.org/bot${botToken}/createChatInviteLink`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          chat_id: channelId,
 
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
+          name: `trk_${trackingId.slice(0, 20)}`,
 
-          body: JSON.stringify({
-            chat_id: channelId,
+          // TRUE = user must request to join
+          creates_join_request: true
+        })
+      }
+    );
 
-            name:
-              `trk_${trackingId.slice(0, 20)}`,
+    const telegramResult = await telegramResponse.json();
 
-            /*
-             * IMPORTANT
-             *
-             * TRUE = USER MUST REQUEST TO JOIN
-             *
-             * You will approve the request
-             * from Telegram.
-             */
-            creates_join_request: true
-          })
-        }
-      );
-
-    const telegramResult =
-      await telegramResponse.json();
-
-    if (
-      !telegramResponse.ok ||
-      !telegramResult.ok
-    ) {
+    if (!telegramResponse.ok || !telegramResult.ok) {
       console.error(
         "Telegram invite creation error:",
         telegramResult
@@ -133,8 +76,8 @@ export default async function handler(request, response) {
 
       return response.status(500).json({
         success: false,
-        error:
-          "Failed to create Telegram request link"
+        error: "Telegram failed to create invite link",
+        telegram_error: telegramResult
       });
     }
 
@@ -147,32 +90,23 @@ export default async function handler(request, response) {
     );
 
     // ==========================================
-    // 6. SAVE CLICK DATA TO REDIS
+    // SAVE CLICK TO REDIS
     // ==========================================
 
-    const clickResponse =
-      await fetch(
-        `${redisUrl}/set/click:${trackingId}`,
-        {
-          method: "POST",
-
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`,
-
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify(data)
-        }
-      );
+    const clickResponse = await fetch(
+      `${redisUrl}/set/click:${trackingId}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${redisToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      }
+    );
 
     if (!clickResponse.ok) {
-
-      const redisError =
-        await clickResponse.text();
+      const redisError = await clickResponse.text();
 
       console.error(
         "Redis click error:",
@@ -181,41 +115,32 @@ export default async function handler(request, response) {
 
       return response.status(500).json({
         success: false,
-        error:
-          "Failed to save click"
+        error: "Failed to save click",
+        redis_error: redisError
       });
     }
 
     // ==========================================
-    // 7. SAVE INVITE → TRACKING ID
+    // SAVE INVITE → TRACKING ID
     // ==========================================
 
     const inviteKey =
       `invite:${encodeURIComponent(inviteLink)}`;
 
-    const inviteResponse =
-      await fetch(
-        `${redisUrl}/set/${inviteKey}`,
-        {
-          method: "POST",
-
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`,
-
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            trackingId
-        }
-      );
+    const inviteResponse = await fetch(
+      `${redisUrl}/set/${inviteKey}`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${redisToken}`,
+          "Content-Type": "application/json"
+        },
+        body: trackingId
+      }
+    );
 
     if (!inviteResponse.ok) {
-
-      const redisError =
-        await inviteResponse.text();
+      const redisError = await inviteResponse.text();
 
       console.error(
         "Redis invite mapping error:",
@@ -224,8 +149,8 @@ export default async function handler(request, response) {
 
       return response.status(500).json({
         success: false,
-        error:
-          "Failed to save invite mapping"
+        error: "Failed to save invite mapping",
+        redis_error: redisError
       });
     }
 
@@ -235,24 +160,20 @@ export default async function handler(request, response) {
     );
 
     // ==========================================
-    // 8. INCREMENT TOTAL CLICKS
+    // INCREMENT TOTAL CLICKS
     // ==========================================
 
-    const incrementResponse =
-      await fetch(
-        `${redisUrl}/incr/total_clicks`,
-        {
-          method: "POST",
-
-          headers: {
-            Authorization:
-              `Bearer ${redisToken}`
-          }
+    const incrementResponse = await fetch(
+      `${redisUrl}/incr/total_clicks`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${redisToken}`
         }
-      );
+      }
+    );
 
     if (!incrementResponse.ok) {
-
       console.error(
         "Failed to increment total clicks:",
         await incrementResponse.text()
@@ -260,7 +181,7 @@ export default async function handler(request, response) {
     }
 
     // ==========================================
-    // 9. REDIRECT USER TO TELEGRAM
+    // SEND USER TO TELEGRAM
     // ==========================================
 
     return response.redirect(
@@ -277,8 +198,8 @@ export default async function handler(request, response) {
 
     return response.status(500).json({
       success: false,
-      error:
-        "Tracker failed"
+      error: "Tracker failed",
+      message: error.message
     });
   }
-}
+};
