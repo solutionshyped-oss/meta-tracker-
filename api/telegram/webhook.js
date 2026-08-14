@@ -1,6 +1,9 @@
-export default async function handler(request, response) {
+module.exports = async function handler(request, response) {
   try {
-    // Telegram sends POST requests
+    // ==========================================
+    // ONLY ACCEPT TELEGRAM POST REQUESTS
+    // ==========================================
+
     if (request.method !== "POST") {
       return response.status(200).json({
         ok: true,
@@ -15,77 +18,9 @@ export default async function handler(request, response) {
       JSON.stringify(update)
     );
 
-    // --------------------------------------------------
-    // ONLY PROCESS CHAT MEMBER UPDATES
-    // --------------------------------------------------
-
-    const chatMember = update?.chat_member;
-
-    if (!chatMember) {
-      return response.status(200).json({
-        ok: true,
-        message: "No chat_member update"
-      });
-    }
-
-    // --------------------------------------------------
-    // GET INVITE LINK USED BY USER
-    // --------------------------------------------------
-
-    const inviteLink =
-      chatMember.invite_link;
-
-    if (!inviteLink) {
-      console.log(
-        "NO INVITE LINK FOUND IN TELEGRAM UPDATE"
-      );
-
-      return response.status(200).json({
-        ok: true,
-        message: "No invite link"
-      });
-    }
-
-    console.log(
-      "TELEGRAM INVITE LINK:",
-      JSON.stringify(inviteLink)
-    );
-
-    // --------------------------------------------------
-    // EXTRACT INVITE CODE
-    // --------------------------------------------------
-
-    let inviteCode = "";
-
-    if (inviteLink.invite_link) {
-      const fullLink = inviteLink.invite_link;
-
-      if (fullLink.includes("/+")) {
-        inviteCode = fullLink.split("/+")[1];
-      } else if (fullLink.includes("/joinchat/")) {
-        inviteCode = fullLink.split("/joinchat/")[1];
-      }
-    }
-
-    if (!inviteCode) {
-      console.log(
-        "NO INVITE CODE FOUND"
-      );
-
-      return response.status(200).json({
-        ok: true,
-        message: "No invite code"
-      });
-    }
-
-    console.log(
-      "TELEGRAM INVITE CODE:",
-      inviteCode
-    );
-
-    // --------------------------------------------------
+    // ==========================================
     // REDIS
-    // --------------------------------------------------
+    // ==========================================
 
     const redisUrl =
       process.env.KV_REST_API_URL;
@@ -104,151 +39,482 @@ export default async function handler(request, response) {
       });
     }
 
-    // --------------------------------------------------
-    // FIND TRACKING ID
-    // --------------------------------------------------
+    // ==========================================
+    // REQUEST TO JOIN
+    // ==========================================
 
-    const inviteKey =
-      `invite_code:${encodeURIComponent(inviteCode)}`;
+    const joinRequest =
+      update?.chat_join_request;
 
-    const trackingResponse = await fetch(
-      `${redisUrl}/get/${inviteKey}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${redisToken}`
-        }
-      }
-    );
+    if (joinRequest) {
 
-    if (!trackingResponse.ok) {
-      console.error(
-        "Redis lookup error:",
-        await trackingResponse.text()
-      );
-
-      return response.status(200).json({
-        ok: true,
-        message: "Redis lookup failed"
-      });
-    }
-
-    const trackingResult =
-      await trackingResponse.json();
-
-    const trackingId =
-      trackingResult.result;
-
-    // --------------------------------------------------
-    // NO TRACKING ID
-    // --------------------------------------------------
-
-    if (!trackingId) {
       console.log(
-        "NO TRACKING ID FOUND FOR INVITE CODE:",
-        inviteCode
+        "TELEGRAM JOIN REQUEST:",
+        JSON.stringify(joinRequest)
       );
+
+      // ------------------------------------------
+      // GET INVITE LINK
+      // ------------------------------------------
+
+      const inviteLink =
+        joinRequest.invite_link?.invite_link;
+
+      if (!inviteLink) {
+
+        console.log(
+          "NO INVITE LINK FOUND IN JOIN REQUEST"
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "No invite link"
+        });
+      }
+
+      console.log(
+        "JOIN REQUEST INVITE LINK:",
+        inviteLink
+      );
+
+      // ------------------------------------------
+      // FIND TRACKING ID
+      // ------------------------------------------
+
+      const inviteKey =
+        `invite:${encodeURIComponent(inviteLink)}`;
+
+      const trackingResponse =
+        await fetch(
+          `${redisUrl}/get/${inviteKey}`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`
+            }
+          }
+        );
+
+      if (!trackingResponse.ok) {
+
+        console.error(
+          "Redis invite lookup error:",
+          await trackingResponse.text()
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "Redis lookup failed"
+        });
+      }
+
+      const trackingResult =
+        await trackingResponse.json();
+
+      const trackingId =
+        trackingResult.result;
+
+      // ------------------------------------------
+      // NO TRACKING ID
+      // ------------------------------------------
+
+      if (!trackingId) {
+
+        console.log(
+          "NO TRACKING ID FOUND FOR INVITE:",
+          inviteLink
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "No tracking ID found"
+        });
+      }
+
+      console.log(
+        "TRACKING ID FOUND:",
+        trackingId
+      );
+
+      // ------------------------------------------
+      // USER INFORMATION
+      // ------------------------------------------
+
+      const user =
+        joinRequest.from;
+
+      const userId =
+        user?.id || null;
+
+      const username =
+        user?.username || null;
+
+      const firstName =
+        user?.first_name || null;
+
+      const requestDate =
+        new Date().toISOString();
+
+      // ------------------------------------------
+      // SAVE JOIN REQUEST
+      // ------------------------------------------
+
+      const requestData = {
+        tracking_id: trackingId,
+
+        invite_link: inviteLink,
+
+        telegram_user_id: userId,
+
+        telegram_username: username,
+
+        first_name: firstName,
+
+        requested_at: requestDate,
+
+        status: "pending"
+      };
+
+      console.log(
+        "TELEGRAM JOIN REQUEST DATA:",
+        requestData
+      );
+
+      const requestResponse =
+        await fetch(
+          `${redisUrl}/set/join_request:${encodeURIComponent(trackingId)}`,
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`,
+
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify(requestData)
+          }
+        );
+
+      if (!requestResponse.ok) {
+
+        console.error(
+          "Redis join request save error:",
+          await requestResponse.text()
+        );
+
+      }
+
+      // ------------------------------------------
+      // INCREMENT TOTAL REQUESTS
+      // ------------------------------------------
+
+      const incrementResponse =
+        await fetch(
+          `${redisUrl}/incr/total_join_requests`,
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`
+            }
+          }
+        );
+
+      if (!incrementResponse.ok) {
+
+        console.error(
+          "Failed to increment join requests:",
+          await incrementResponse.text()
+        );
+
+      }
 
       return response.status(200).json({
         ok: true,
-        message: "No tracking ID found"
+
+        type: "chat_join_request",
+
+        tracking_id: trackingId,
+
+        telegram_user_id: userId,
+
+        status: "pending"
       });
     }
 
-    console.log(
-      "TRACKING ID FOUND:",
-      trackingId
-    );
+    // ==========================================
+    // CHAT MEMBER UPDATE
+    //
+    // This happens when the user actually
+    // becomes a member.
+    // ==========================================
 
-    // --------------------------------------------------
-    // GET USER INFORMATION
-    // --------------------------------------------------
+    const chatMember =
+      update?.chat_member;
 
-    const user =
-      chatMember.new_chat_member?.user ||
-      chatMember.from;
+    if (chatMember) {
 
-    const userId =
-      user?.id || null;
-
-    const username =
-      user?.username || null;
-
-    const firstName =
-      user?.first_name || null;
-
-    const joinedAt =
-      new Date().toISOString();
-
-    // --------------------------------------------------
-    // SAVE JOIN DATA
-    // --------------------------------------------------
-
-    const joinData = {
-      tracking_id: trackingId,
-      invite_code: inviteCode,
-      telegram_user_id: userId,
-      telegram_username: username,
-      first_name: firstName,
-      joined_at: joinedAt
-    };
-
-    console.log(
-      "TELEGRAM JOIN DATA:",
-      joinData
-    );
-
-    const joinResponse = await fetch(
-      `${redisUrl}/set/join:${encodeURIComponent(trackingId)}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(joinData)
-      }
-    );
-
-    if (!joinResponse.ok) {
-      console.error(
-        "Redis join save error:",
-        await joinResponse.text()
+      console.log(
+        "TELEGRAM CHAT MEMBER UPDATE:",
+        JSON.stringify(chatMember)
       );
+
+      // ------------------------------------------
+      // CHECK MEMBER STATUS
+      // ------------------------------------------
+
+      const newStatus =
+        chatMember.new_chat_member?.status;
+
+      const oldStatus =
+        chatMember.old_chat_member?.status;
+
+      /*
+       * We only count a real join.
+       *
+       * Common transition:
+       *
+       * left / kicked
+       *        ↓
+       * member
+       */
+
+      const becameMember =
+        newStatus === "member" &&
+        oldStatus !== "member";
+
+      if (!becameMember) {
+
+        return response.status(200).json({
+          ok: true,
+          message: "Not a new member"
+        });
+      }
+
+      // ------------------------------------------
+      // GET INVITE LINK
+      // ------------------------------------------
+
+      const inviteLink =
+        chatMember.invite_link?.invite_link;
+
+      if (!inviteLink) {
+
+        console.log(
+          "NO INVITE LINK FOUND IN CHAT MEMBER UPDATE"
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "No invite link"
+        });
+      }
+
+      console.log(
+        "MEMBER INVITE LINK:",
+        inviteLink
+      );
+
+      // ------------------------------------------
+      // FIND TRACKING ID
+      // ------------------------------------------
+
+      const inviteKey =
+        `invite:${encodeURIComponent(inviteLink)}`;
+
+      const trackingResponse =
+        await fetch(
+          `${redisUrl}/get/${inviteKey}`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`
+            }
+          }
+        );
+
+      if (!trackingResponse.ok) {
+
+        console.error(
+          "Redis member invite lookup error:",
+          await trackingResponse.text()
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "Redis lookup failed"
+        });
+      }
+
+      const trackingResult =
+        await trackingResponse.json();
+
+      const trackingId =
+        trackingResult.result;
+
+      if (!trackingId) {
+
+        console.log(
+          "NO TRACKING ID FOUND FOR MEMBER INVITE"
+        );
+
+        return response.status(200).json({
+          ok: true,
+          message: "No tracking ID found"
+        });
+      }
+
+      console.log(
+        "MEMBER TRACKING ID FOUND:",
+        trackingId
+      );
+
+      // ------------------------------------------
+      // USER INFORMATION
+      // ------------------------------------------
+
+      const user =
+        chatMember.new_chat_member?.user ||
+        chatMember.from;
+
+      const userId =
+        user?.id || null;
+
+      const username =
+        user?.username || null;
+
+      const firstName =
+        user?.first_name || null;
+
+      const joinedAt =
+        new Date().toISOString();
+
+      // ------------------------------------------
+      // SAVE CONFIRMED JOIN
+      // ------------------------------------------
+
+      const joinData = {
+
+        tracking_id:
+          trackingId,
+
+        invite_link:
+          inviteLink,
+
+        telegram_user_id:
+          userId,
+
+        telegram_username:
+          username,
+
+        first_name:
+          firstName,
+
+        joined_at:
+          joinedAt,
+
+        status:
+          "joined"
+      };
+
+      console.log(
+        "TELEGRAM JOIN DATA:",
+        joinData
+      );
+
+      const joinResponse =
+        await fetch(
+          `${redisUrl}/set/join:${encodeURIComponent(trackingId)}`,
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`,
+
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify(joinData)
+          }
+        );
+
+      if (!joinResponse.ok) {
+
+        console.error(
+          "Redis join save error:",
+          await joinResponse.text()
+        );
+
+      }
+
+      // ------------------------------------------
+      // INCREMENT TOTAL CONFIRMED JOINS
+      // ------------------------------------------
+
+      const incrementResponse =
+        await fetch(
+          `${redisUrl}/incr/total_joins`,
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${redisToken}`
+            }
+          }
+        );
+
+      if (!incrementResponse.ok) {
+
+        console.error(
+          "Failed to increment total joins:",
+          await incrementResponse.text()
+        );
+
+      }
+
+      return response.status(200).json({
+
+        ok: true,
+
+        type:
+          "chat_member",
+
+        tracking_id:
+          trackingId,
+
+        telegram_user_id:
+          userId,
+
+        status:
+          "joined"
+
+      });
     }
 
-    // --------------------------------------------------
-    // INCREMENT TOTAL JOINS
-    // --------------------------------------------------
-
-    const incrementResponse = await fetch(
-      `${redisUrl}/incr/total_joins`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`
-        }
-      }
-    );
-
-    if (!incrementResponse.ok) {
-      console.error(
-        "Failed to increment joins:",
-        await incrementResponse.text()
-      );
-    }
-
-    // --------------------------------------------------
-    // SUCCESS
-    // --------------------------------------------------
+    // ==========================================
+    // OTHER TELEGRAM UPDATES
+    // ==========================================
 
     return response.status(200).json({
       ok: true,
-      tracking_id: trackingId,
-      invite_code: inviteCode
+      message: "Update received but not relevant"
     });
 
   } catch (error) {
+
     console.error(
       "WEBHOOK ERROR:",
       error
@@ -256,7 +522,8 @@ export default async function handler(request, response) {
 
     return response.status(500).json({
       ok: false,
-      error: "Webhook failed"
+      error: "Webhook failed",
+      message: error.message
     });
   }
-}
+};
