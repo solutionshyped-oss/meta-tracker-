@@ -3,125 +3,666 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Meta Tracker</title>
+
+  <title>Meta → Telegram Tracker</title>
+
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       background: #f5f7fb;
-      color: #111827;
+      color: #172033;
     }
-    header {
+
+    .container {
+      width: min(1150px, calc(100% - 32px));
+      margin: auto;
+      padding: 35px 0 50px;
+    }
+
+    /* HEADER */
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      gap: 20px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 30px;
+    }
+
+    .brand p {
+      margin: 8px 0;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+      color: #15803d;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+
+    /* BUTTON */
+
+    .refresh-btn {
+      border: none;
       background: #111827;
       color: white;
-      padding: 20px 24px;
+      padding: 12px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
     }
-    header h1 { margin: 0; font-size: 24px; }
-    header p { margin: 6px 0 0; color: #cbd5e1; }
-    main {
-      max-width: 1100px;
-      margin: 30px auto;
-      padding: 0 20px;
+
+    .refresh-btn:hover {
+      opacity: 0.9;
     }
+
+    /* STAT CARDS */
+
     .cards {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 20px;
     }
+
     .card {
       background: white;
-      border-radius: 12px;
-      padding: 22px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+      border: 1px solid #e8ebf1;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
     }
-    .label { color: #64748b; font-size: 14px; }
-    .value { font-size: 32px; font-weight: 700; margin-top: 8px; }
-    .panel {
-      background: white;
-      border-radius: 12px;
-      padding: 22px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+
+    .card-label {
+      color: #6b7280;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
+
+    .number {
       margin-top: 12px;
+      font-size: 40px;
+      font-weight: 700;
     }
-    th, td {
-      text-align: left;
-      padding: 14px 10px;
-      border-bottom: 1px solid #e5e7eb;
+
+    .sub {
+      margin-top: 10px;
+      color: #9ca3af;
+      font-size: 13px;
     }
-    th { color: #64748b; font-size: 13px; }
-    .empty {
-      text-align: center;
-      padding: 40px 10px;
+
+    /* SECTION */
+
+    .section {
+      background: white;
+      border: 1px solid #e8ebf1;
+      border-radius: 16px;
+      padding: 25px;
+      margin-top: 22px;
+      box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+    }
+
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 19px;
+    }
+
+    .section p {
+      margin: 0;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    /* PROGRESS */
+
+    .progress-wrap {
+      margin-top: 25px;
+    }
+
+    .progress {
+      width: 100%;
+      height: 15px;
+      background: #edf0f5;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #16a34a;
+      border-radius: 999px;
+      transition: width 0.5s ease;
+    }
+
+    .conversion-info {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
+    /* INFORMATION */
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .info-box {
+      background: #f8fafc;
+      padding: 18px;
+      border-radius: 12px;
+    }
+
+    .info-box strong {
+      display: block;
       color: #64748b;
+      font-size: 13px;
+      margin-bottom: 7px;
     }
-    @media (max-width: 700px) {
-      .cards { grid-template-columns: 1fr; }
-      main { margin-top: 20px; }
-      .panel { overflow-x: auto; }
+
+    .info-box span {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    /* ERROR */
+
+    .error {
+      display: none;
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #fef2f2;
+      color: #b91c1c;
+      font-size: 14px;
+    }
+
+    /* FOOTER */
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    /* MOBILE */
+
+    @media (max-width: 750px) {
+
+      .cards {
+        grid-template-columns: 1fr;
+      }
+
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .refresh-btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
+
+
 <body>
-  <header>
-    <h1>Meta Tracker</h1>
-    <p>Meta Ads → Tracking → Telegram</p>
-  </header>
 
-  <main>
+  <main class="container">
+
+    <!-- HEADER -->
+
+    <header class="header">
+
+      <div class="brand">
+
+        <h1>
+          Meta → Telegram Tracker
+        </h1>
+
+        <p>
+          Track Meta ad clicks and Telegram joins in real time.
+        </p>
+
+        <div class="status">
+
+          <span class="dot"></span>
+
+          Tracker Connected
+
+        </div>
+
+      </div>
+
+
+      <button
+        class="refresh-btn"
+        onclick="loadStats()"
+      >
+        ↻ Refresh Stats
+      </button>
+
+    </header>
+
+
+    <!-- STATISTICS -->
+
     <section class="cards">
+
+
+      <!-- CLICKS -->
+
       <div class="card">
-        <div class="label">Clicks</div>
-        <div class="value" id="clicks">0</div>
+
+        <div class="card-label">
+          Total Clicks
+        </div>
+
+        <div
+          class="number"
+          id="totalClicks"
+        >
+          —
+        </div>
+
+        <div class="sub">
+          Total people who clicked your tracking links
+        </div>
+
       </div>
+
+
+
+      <!-- JOINS -->
+
       <div class="card">
-        <div class="label">Telegram Joins</div>
-        <div class="value" id="joins">0</div>
+
+        <div class="card-label">
+          Telegram Joins
+        </div>
+
+        <div
+          class="number"
+          id="totalJoins"
+        >
+          —
+        </div>
+
+        <div class="sub">
+          People who joined your Telegram channel
+        </div>
+
       </div>
+
+
+
+      <!-- CONVERSION -->
+
       <div class="card">
-        <div class="label">Conversion Rate</div>
-        <div class="value" id="rate">0%</div>
+
+        <div class="card-label">
+          Conversion Rate
+        </div>
+
+        <div
+          class="number"
+          id="conversionRate"
+        >
+          —
+        </div>
+
+        <div class="sub">
+          Telegram joins divided by total clicks
+        </div>
+
       </div>
+
     </section>
 
-    <section class="panel">
-      <h2>Campaigns</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Campaign</th>
-            <th>Clicks</th>
-            <th>Joins</th>
-            <th>Conversion Rate</th>
-          </tr>
-        </thead>
-        <tbody id="campaigns">
-          <tr>
-            <td colspan="4" class="empty">
-              No tracking data yet. Connect the API/database to display live data.
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+
+    <!-- CONVERSION PERFORMANCE -->
+
+    <section class="section">
+
+      <h2>
+        Conversion Performance
+      </h2>
+
+      <p>
+        Percentage of visitors who joined your Telegram channel.
+      </p>
+
+
+      <div class="progress-wrap">
+
+        <div class="progress">
+
+          <div
+            class="progress-bar"
+            id="progressBar"
+          ></div>
+
+        </div>
+
+
+        <div class="conversion-info">
+
+          <span>
+            0%
+          </span>
+
+          <strong id="progressText">
+            0%
+          </strong>
+
+          <span>
+            100%
+          </span>
+
+        </div>
+
+      </div>
+
     </section>
+
+
+
+    <!-- TRACKER INFORMATION -->
+
+    <section class="section">
+
+      <h2>
+        Tracker Information
+      </h2>
+
+      <p>
+        Dashboard is connected to your existing Vercel statistics API.
+      </p>
+
+
+      <div class="info-grid">
+
+
+        <div class="info-box">
+
+          <strong>
+            Statistics API
+          </strong>
+
+          <span>
+            /api/stats
+          </span>
+
+        </div>
+
+
+
+        <div class="info-box">
+
+          <strong>
+            Last Updated
+          </strong>
+
+          <span id="lastUpdated">
+            —
+          </span>
+
+        </div>
+
+
+      </div>
+
+
+      <div
+        class="error"
+        id="errorBox"
+      ></div>
+
+    </section>
+
+
+
+    <div class="footer">
+
+      Meta → Telegram Tracking Dashboard
+
+    </div>
+
+
   </main>
 
-  <script>
-    // This is the initial dashboard UI.
-    // Live Meta/Telegram tracking will be connected through the backend endpoints
-    // in the next step.
-    const clicks = 0;
-    const joins = 0;
 
-    document.getElementById("clicks").textContent = clicks;
-    document.getElementById("joins").textContent = joins;
-    document.getElementById("rate").textContent =
-      clicks > 0 ? ((joins / clicks) * 100).toFixed(1) + "%" : "0%";
+
+  <!-- JAVASCRIPT -->
+
+  <script>
+
+    async function loadStats() {
+
+      const errorBox =
+        document.getElementById("errorBox");
+
+
+      errorBox.style.display = "none";
+
+
+      try {
+
+
+        /*
+         * Get statistics from your existing API
+         */
+
+        const response =
+          await fetch(
+            "/api/stats",
+            {
+              method: "GET",
+              cache: "no-store"
+            }
+          );
+
+
+        /*
+         * Check API response
+         */
+
+        if (!response.ok) {
+
+          throw new Error(
+            "API returned HTTP " +
+            response.status
+          );
+
+        }
+
+
+        /*
+         * Convert response to JSON
+         */
+
+        const data =
+          await response.json();
+
+
+        /*
+         * Check success
+         */
+
+        if (!data.success) {
+
+          throw new Error(
+            data.error ||
+            "Stats API returned an error"
+          );
+
+        }
+
+
+        /*
+         * Get values
+         */
+
+        const clicks =
+          Number(
+            data.total_clicks || 0
+          );
+
+
+        const joins =
+          Number(
+            data.total_joins || 0
+          );
+
+
+        /*
+         * Calculate conversion rate
+         */
+
+        let rate = 0;
+
+
+        if (clicks > 0) {
+
+          rate =
+            (joins / clicks) * 100;
+
+        }
+
+
+        /*
+         * Update Total Clicks
+         */
+
+        document.getElementById(
+          "totalClicks"
+        ).textContent =
+          clicks.toLocaleString();
+
+
+        /*
+         * Update Telegram Joins
+         */
+
+        document.getElementById(
+          "totalJoins"
+        ).textContent =
+          joins.toLocaleString();
+
+
+        /*
+         * Update Conversion Rate
+         */
+
+        document.getElementById(
+          "conversionRate"
+        ).textContent =
+          rate.toFixed(2) + "%";
+
+
+        /*
+         * Update Progress
+         */
+
+        document.getElementById(
+          "progressText"
+        ).textContent =
+          rate.toFixed(2) + "%";
+
+
+        document.getElementById(
+          "progressBar"
+        ).style.width =
+          Math.min(rate, 100) + "%";
+
+
+        /*
+         * Update Last Updated
+         */
+
+        document.getElementById(
+          "lastUpdated"
+        ).textContent =
+          new Date().toLocaleString();
+
+
+      }
+
+      catch (error) {
+
+
+        console.error(
+          "Dashboard Error:",
+          error
+        );
+
+
+        errorBox.textContent =
+          "Unable to load statistics. " +
+          error.message;
+
+
+        errorBox.style.display =
+          "block";
+
+      }
+
+    }
+
+
+    /*
+     * Load statistics when page opens
+     */
+
+    loadStats();
+
+
+    /*
+     * Automatically refresh every 30 seconds
+     */
+
+    setInterval(
+      loadStats,
+      30000
+    );
+
   </script>
+
+
 </body>
 </html>
