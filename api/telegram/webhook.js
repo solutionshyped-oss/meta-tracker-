@@ -21,8 +21,34 @@ export default async function handler(request, response) {
       });
     }
 
-    const chatMember = update.chat_member;
-    const chat = chatMember.chat;
+    const chatMember =
+      update.chat_member;
+
+    const chat =
+      chatMember.chat;
+
+    // Your Telegram channel ID
+    const channelId =
+      "-1001986231339";
+
+    // Make sure this is your channel
+    if (
+      !chat ||
+      String(chat.id) !== channelId
+    ) {
+      console.log(
+        "IGNORED: Different Telegram chat"
+      );
+
+      return response.status(200).json({
+        ok: true,
+        ignored: true
+      });
+    }
+
+    // --------------------------------------------------
+    // 1. DETECT JOIN
+    // --------------------------------------------------
 
     const oldStatus =
       chatMember.old_chat_member?.status;
@@ -30,18 +56,6 @@ export default async function handler(request, response) {
     const newStatus =
       chatMember.new_chat_member?.status;
 
-    // Your Telegram channel ID
-    const channelId = "-1001986231339";
-
-    // Ignore updates from other chats
-    if (!chat || String(chat.id) !== channelId) {
-      return response.status(200).json({
-        ok: true,
-        ignored: true
-      });
-    }
-
-    // Detect a new member
     const isJoin =
       (
         oldStatus === "left" ||
@@ -60,8 +74,14 @@ export default async function handler(request, response) {
       });
     }
 
-    // Telegram sends invite_link as an object.
-    // We need the actual invite URL from inside it.
+    console.log(
+      "TELEGRAM JOIN DETECTED"
+    );
+
+    // --------------------------------------------------
+    // 2. GET INVITE LINK
+    // --------------------------------------------------
+
     const inviteLink =
       chatMember.invite_link?.invite_link;
 
@@ -79,11 +99,38 @@ export default async function handler(request, response) {
     }
 
     console.log(
-      "JOIN INVITE LINK:",
+      "TELEGRAM INVITE LINK:",
       inviteLink
     );
 
-    // Redis configuration
+    // --------------------------------------------------
+    // 3. EXTRACT SAME INVITE CODE USED BY go.js
+    // --------------------------------------------------
+
+    const inviteCode =
+      inviteLink.split("/").pop();
+
+    if (!inviteCode) {
+      console.log(
+        "COULD NOT EXTRACT INVITE CODE"
+      );
+
+      return response.status(200).json({
+        ok: true,
+        join: true,
+        tracking_id: null
+      });
+    }
+
+    console.log(
+      "TELEGRAM INVITE CODE:",
+      inviteCode
+    );
+
+    // --------------------------------------------------
+    // 4. REDIS CONFIGURATION
+    // --------------------------------------------------
+
     const redisUrl =
       process.env.KV_REST_API_URL;
 
@@ -101,26 +148,24 @@ export default async function handler(request, response) {
       });
     }
 
-    // This must match the key created by go.js
-    const redisKey =
-      `invite:${encodeURIComponent(inviteLink)}`;
+    // --------------------------------------------------
+    // 5. LOOK UP TRACKING ID
+    // --------------------------------------------------
 
-    console.log(
-      "REDIS LOOKUP KEY:",
-      redisKey
-    );
+    const encodedInviteCode =
+      encodeURIComponent(inviteCode);
 
-    // Look up the tracking ID
-    const redisResponse = await fetch(
-      `${redisUrl}/get/${redisKey}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization:
-            `Bearer ${redisToken}`
+    const redisResponse =
+      await fetch(
+        `${redisUrl}/get/invite_code:${encodedInviteCode}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`
+          }
         }
-      }
-    );
+      );
 
     if (!redisResponse.ok) {
       const errorText =
@@ -137,8 +182,6 @@ export default async function handler(request, response) {
       });
     }
 
-    // Upstash Redis REST returns:
-    // { "result": "tracking-id" }
     const redisData =
       await redisResponse.json();
 
@@ -152,14 +195,15 @@ export default async function handler(request, response) {
 
     if (!trackingId) {
       console.log(
-        "NO TRACKING ID FOUND FOR INVITE"
+        "NO TRACKING ID FOUND FOR INVITE CODE:",
+        inviteCode
       );
 
       return response.status(200).json({
         ok: true,
         join: true,
         tracking_id: null,
-        reason: "Invite link not found in Redis"
+        reason: "Invite code not found"
       });
     }
 
@@ -168,18 +212,34 @@ export default async function handler(request, response) {
       trackingId
     );
 
-    // Telegram user information
+    // --------------------------------------------------
+    // 6. COLLECT TELEGRAM USER DATA
+    // --------------------------------------------------
+
     const user =
       chatMember.new_chat_member?.user || {};
 
     const joinData = {
       tracking_id: trackingId,
       joined_at: new Date().toISOString(),
-      telegram_user_id: user.id || null,
-      telegram_username: user.username || null,
-      telegram_first_name: user.first_name || null,
-      channel_id: channelId,
-      invite_link: inviteLink
+
+      telegram_user_id:
+        user.id || null,
+
+      telegram_username:
+        user.username || null,
+
+      telegram_first_name:
+        user.first_name || null,
+
+      channel_id:
+        channelId,
+
+      invite_link:
+        inviteLink,
+
+      invite_code:
+        inviteCode
     };
 
     console.log(
@@ -187,20 +247,24 @@ export default async function handler(request, response) {
       joinData
     );
 
-    // Save the Telegram join
-    const joinResponse = await fetch(
-      `${redisUrl}/set/join:${trackingId}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization:
-            `Bearer ${redisToken}`,
-          "Content-Type":
-            "application/json"
-        },
-        body: JSON.stringify(joinData)
-      }
-    );
+    // --------------------------------------------------
+    // 7. SAVE JOIN TO REDIS
+    // --------------------------------------------------
+
+    const joinResponse =
+      await fetch(
+        `${redisUrl}/set/join:${trackingId}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`,
+            "Content-Type":
+              "application/json"
+          },
+          body: JSON.stringify(joinData)
+        }
+      );
 
     if (!joinResponse.ok) {
       const errorText =
@@ -217,17 +281,21 @@ export default async function handler(request, response) {
       });
     }
 
-    // Increment total joins
-    const incrementResponse = await fetch(
-      `${redisUrl}/incr/total_joins`,
-      {
-        method: "POST",
-        headers: {
-          Authorization:
-            `Bearer ${redisToken}`
+    // --------------------------------------------------
+    // 8. INCREMENT TOTAL JOINS
+    // --------------------------------------------------
+
+    const incrementResponse =
+      await fetch(
+        `${redisUrl}/incr/total_joins`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`
+          }
         }
-      }
-    );
+      );
 
     if (!incrementResponse.ok) {
       console.error(
