@@ -33,7 +33,7 @@ export default async function handler(request, response) {
     // Your Telegram channel ID
     const channelId = "-1001986231339";
 
-    // Ignore other Telegram chats
+    // Ignore updates from other chats
     if (!chat || String(chat.id) !== channelId) {
       return response.status(200).json({
         ok: true,
@@ -60,8 +60,10 @@ export default async function handler(request, response) {
       });
     }
 
+    // Telegram sends invite_link as an object.
+    // We need the actual invite URL from inside it.
     const inviteLink =
-      chatMember.invite_link;
+      chatMember.invite_link?.invite_link;
 
     if (!inviteLink) {
       console.log(
@@ -81,6 +83,7 @@ export default async function handler(request, response) {
       inviteLink
     );
 
+    // Redis configuration
     const redisUrl =
       process.env.KV_REST_API_URL;
 
@@ -98,10 +101,16 @@ export default async function handler(request, response) {
       });
     }
 
-    // Same key used by go.js
+    // This must match the key created by go.js
     const redisKey =
       `invite:${encodeURIComponent(inviteLink)}`;
 
+    console.log(
+      "REDIS LOOKUP KEY:",
+      redisKey
+    );
+
+    // Look up the tracking ID
     const redisResponse = await fetch(
       `${redisUrl}/get/${redisKey}`,
       {
@@ -128,19 +137,18 @@ export default async function handler(request, response) {
       });
     }
 
-    // IMPORTANT:
-    // Upstash returns:
+    // Upstash Redis REST returns:
     // { "result": "tracking-id" }
     const redisData =
       await redisResponse.json();
-
-    const trackingId =
-      redisData.result;
 
     console.log(
       "REDIS LOOKUP RESULT:",
       redisData
     );
+
+    const trackingId =
+      redisData.result;
 
     if (!trackingId) {
       console.log(
@@ -160,6 +168,7 @@ export default async function handler(request, response) {
       trackingId
     );
 
+    // Telegram user information
     const user =
       chatMember.new_chat_member?.user || {};
 
@@ -178,7 +187,7 @@ export default async function handler(request, response) {
       joinData
     );
 
-    // Save the join
+    // Save the Telegram join
     const joinResponse = await fetch(
       `${redisUrl}/set/join:${trackingId}`,
       {
