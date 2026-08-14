@@ -5,14 +5,14 @@ export default async function handler(request, response) {
       `https://${request.headers.host}`
     );
 
-    // Create a unique tracking ID for this click
+    // Create unique tracking ID
     const trackingId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : Date.now().toString(36) +
           Math.random().toString(36).slice(2);
 
-    // Collect Meta/UTM information
+    // Collect Meta / UTM information
     const data = {
       tracking_id: trackingId,
       timestamp: new Date().toISOString(),
@@ -24,12 +24,12 @@ export default async function handler(request, response) {
       utm_term: url.searchParams.get("utm_term")
     };
 
-    // Vercel environment variables
+    // Environment variables
     const redisUrl = process.env.KV_REST_API_URL;
     const redisToken = process.env.KV_REST_API_TOKEN;
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
 
-    // Your Telegram channel ID
+    // Telegram channel ID
     const channelId = "-1001986231339";
 
     // Check configuration
@@ -45,7 +45,7 @@ export default async function handler(request, response) {
     console.log("META TRACKER CLICK:", data);
 
     // --------------------------------------------------
-    // 1. CREATE A UNIQUE TELEGRAM INVITE LINK
+    // 1. CREATE UNIQUE TELEGRAM INVITE LINK
     // --------------------------------------------------
 
     const telegramResponse = await fetch(
@@ -63,7 +63,8 @@ export default async function handler(request, response) {
       }
     );
 
-    const telegramResult = await telegramResponse.json();
+    const telegramResult =
+      await telegramResponse.json();
 
     if (!telegramResponse.ok || !telegramResult.ok) {
       console.error(
@@ -77,7 +78,8 @@ export default async function handler(request, response) {
       });
     }
 
-    const inviteLink = telegramResult.result.invite_link;
+    const inviteLink =
+      telegramResult.result.invite_link;
 
     console.log(
       "TELEGRAM INVITE CREATED:",
@@ -85,7 +87,30 @@ export default async function handler(request, response) {
     );
 
     // --------------------------------------------------
-    // 2. SAVE CLICK DATA TO REDIS
+    // 2. GET ONLY THE UNIQUE INVITE CODE
+    // --------------------------------------------------
+
+    const inviteCode =
+      inviteLink.split("/").pop();
+
+    if (!inviteCode) {
+      console.error(
+        "Could not extract Telegram invite code"
+      );
+
+      return response.status(500).json({
+        success: false,
+        error: "Invalid Telegram invite link"
+      });
+    }
+
+    console.log(
+      "TELEGRAM INVITE CODE:",
+      inviteCode
+    );
+
+    // --------------------------------------------------
+    // 3. SAVE CLICK DATA
     // --------------------------------------------------
 
     const clickResponse = await fetch(
@@ -93,15 +118,18 @@ export default async function handler(request, response) {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${redisToken}`,
-          "Content-Type": "application/json"
+          Authorization:
+            `Bearer ${redisToken}`,
+          "Content-Type":
+            "application/json"
         },
         body: JSON.stringify(data)
       }
     );
 
     if (!clickResponse.ok) {
-      const redisError = await clickResponse.text();
+      const redisError =
+        await clickResponse.text();
 
       console.error(
         "Redis click error:",
@@ -115,26 +143,29 @@ export default async function handler(request, response) {
     }
 
     // --------------------------------------------------
-    // 3. SAVE INVITE LINK → TRACKING ID
+    // 4. SAVE INVITE CODE → TRACKING ID
     // --------------------------------------------------
 
-    const inviteKey =
-      `invite:${encodeURIComponent(inviteLink)}`;
+    const encodedInviteCode =
+      encodeURIComponent(inviteCode);
 
     const inviteResponse = await fetch(
-      `${redisUrl}/set/${inviteKey}`,
+      `${redisUrl}/set/invite_code:${encodedInviteCode}`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${redisToken}`,
-          "Content-Type": "application/json"
+          Authorization:
+            `Bearer ${redisToken}`,
+          "Content-Type":
+            "application/json"
         },
         body: trackingId
       }
     );
 
     if (!inviteResponse.ok) {
-      const redisError = await inviteResponse.text();
+      const redisError =
+        await inviteResponse.text();
 
       console.error(
         "Redis invite mapping error:",
@@ -148,23 +179,25 @@ export default async function handler(request, response) {
     }
 
     console.log(
-      "INVITE MAPPED TO TRACKING ID:",
+      "INVITE CODE MAPPED TO TRACKING ID:",
       trackingId
     );
 
     // --------------------------------------------------
-    // 4. INCREMENT TOTAL CLICKS
+    // 5. INCREMENT TOTAL CLICKS
     // --------------------------------------------------
 
-    const incrementResponse = await fetch(
-      `${redisUrl}/incr/total_clicks`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${redisToken}`
+    const incrementResponse =
+      await fetch(
+        `${redisUrl}/incr/total_clicks`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${redisToken}`
+          }
         }
-      }
-    );
+      );
 
     if (!incrementResponse.ok) {
       console.error(
@@ -174,7 +207,7 @@ export default async function handler(request, response) {
     }
 
     // --------------------------------------------------
-    // 5. SEND USER TO UNIQUE TELEGRAM INVITE
+    // 6. REDIRECT USER TO TELEGRAM
     // --------------------------------------------------
 
     return response.redirect(
