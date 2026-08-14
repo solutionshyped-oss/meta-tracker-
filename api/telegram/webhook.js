@@ -14,7 +14,7 @@ export default async function handler(request, response) {
       JSON.stringify(update)
     );
 
-    // We only care about chat_member updates
+    // Only process chat_member updates
     if (!update || !update.chat_member) {
       return response.status(200).json({
         ok: true
@@ -22,30 +22,36 @@ export default async function handler(request, response) {
     }
 
     const chatMember = update.chat_member;
-
     const chat = chatMember.chat;
-    const oldStatus = chatMember.old_chat_member?.status;
-    const newStatus = chatMember.new_chat_member?.status;
 
-    // Your Telegram channel
+    const oldStatus =
+      chatMember.old_chat_member?.status;
+
+    const newStatus =
+      chatMember.new_chat_member?.status;
+
+    // Your Telegram channel ID
     const channelId = "-1001986231339";
 
-    // Ignore updates from other chats
+    // Ignore other Telegram chats
     if (!chat || String(chat.id) !== channelId) {
       return response.status(200).json({
-        ok: true
+        ok: true,
+        ignored: true
       });
     }
 
-    // A real join is usually:
-    // old status = left/kicked
-    // new status = member
+    // Detect a new member
     const isJoin =
-      (oldStatus === "left" ||
+      (
+        oldStatus === "left" ||
         oldStatus === "kicked" ||
-        oldStatus === undefined) &&
-      (newStatus === "member" ||
-        newStatus === "administrator");
+        oldStatus === undefined
+      ) &&
+      (
+        newStatus === "member" ||
+        newStatus === "administrator"
+      );
 
     if (!isJoin) {
       return response.status(200).json({
@@ -66,7 +72,7 @@ export default async function handler(request, response) {
         ok: true,
         join: true,
         tracking_id: null,
-        reason: "No invite link in Telegram update"
+        reason: "No invite link"
       });
     }
 
@@ -92,7 +98,7 @@ export default async function handler(request, response) {
       });
     }
 
-    // Find the tracking ID connected to this invite link
+    // Same key used by go.js
     const redisKey =
       `invite:${encodeURIComponent(inviteLink)}`;
 
@@ -108,9 +114,12 @@ export default async function handler(request, response) {
     );
 
     if (!redisResponse.ok) {
+      const errorText =
+        await redisResponse.text();
+
       console.error(
         "Redis lookup failed:",
-        await redisResponse.text()
+        errorText
       );
 
       return response.status(500).json({
@@ -119,13 +128,21 @@ export default async function handler(request, response) {
       });
     }
 
-    const trackingId =
-      await redisResponse.text();
+    // IMPORTANT:
+    // Upstash returns:
+    // { "result": "tracking-id" }
+    const redisData =
+      await redisResponse.json();
 
-    if (
-      !trackingId ||
-      trackingId === "null"
-    ) {
+    const trackingId =
+      redisData.result;
+
+    console.log(
+      "REDIS LOOKUP RESULT:",
+      redisData
+    );
+
+    if (!trackingId) {
       console.log(
         "NO TRACKING ID FOUND FOR INVITE"
       );
@@ -133,7 +150,8 @@ export default async function handler(request, response) {
       return response.status(200).json({
         ok: true,
         join: true,
-        tracking_id: null
+        tracking_id: null,
+        reason: "Invite link not found in Redis"
       });
     }
 
@@ -142,7 +160,6 @@ export default async function handler(request, response) {
       trackingId
     );
 
-    // Information about the Telegram user
     const user =
       chatMember.new_chat_member?.user || {};
 
@@ -177,9 +194,12 @@ export default async function handler(request, response) {
     );
 
     if (!joinResponse.ok) {
+      const errorText =
+        await joinResponse.text();
+
       console.error(
         "Failed to save Telegram join:",
-        await joinResponse.text()
+        errorText
       );
 
       return response.status(500).json({
@@ -206,6 +226,11 @@ export default async function handler(request, response) {
         await incrementResponse.text()
       );
     }
+
+    console.log(
+      "TELEGRAM JOIN SAVED SUCCESSFULLY:",
+      trackingId
+    );
 
     return response.status(200).json({
       ok: true,
