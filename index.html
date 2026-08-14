@@ -1,12 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
 
   <title>Meta → Telegram Tracker</title>
 
   <style>
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -17,13 +24,12 @@
       font-family: Arial, Helvetica, sans-serif;
       background: #f4f7fb;
       color: #14213d;
-      min-height: 100vh;
     }
 
     .container {
       max-width: 1400px;
       margin: auto;
-      padding: 45px 30px;
+      padding: 40px 30px;
     }
 
     /* HEADER */
@@ -32,120 +38,113 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 35px;
-      gap: 20px;
+      margin-bottom: 30px;
     }
 
     .title {
-      font-size: 38px;
+      font-size: 36px;
       font-weight: 800;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .subtitle {
-      font-size: 17px;
       color: #667085;
-      margin-bottom: 15px;
+      font-size: 16px;
+      margin-bottom: 14px;
     }
 
     .connected {
       display: flex;
       align-items: center;
-      gap: 9px;
-      color: #087f3f;
+      gap: 8px;
+      color: #07883f;
       font-weight: 700;
-      font-size: 16px;
     }
 
-    .connected-dot {
-      width: 11px;
-      height: 11px;
+    .dot {
+      width: 10px;
+      height: 10px;
       background: #16a34a;
       border-radius: 50%;
-      display: inline-block;
     }
 
     .refresh-btn {
       background: #111827;
       color: white;
-      border: none;
-      border-radius: 13px;
-      padding: 16px 24px;
-      font-size: 16px;
+      border: 0;
+      border-radius: 12px;
+      padding: 15px 22px;
       font-weight: 700;
       cursor: pointer;
-      transition: 0.2s;
+      font-size: 15px;
     }
 
     .refresh-btn:hover {
-      background: #263244;
-      transform: translateY(-1px);
+      background: #273449;
     }
 
-    /* STAT CARDS */
+    /* STATS */
 
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-      margin-bottom: 28px;
+      gap: 20px;
+      margin-bottom: 25px;
     }
 
     .card {
       background: white;
-      border: 1px solid #e4e8ef;
-      border-radius: 20px;
-      padding: 30px;
-      box-shadow: 0 8px 25px rgba(20, 33, 61, 0.05);
+      border: 1px solid #e3e8ef;
+      border-radius: 18px;
+      padding: 28px;
+      box-shadow: 0 5px 20px rgba(20, 33, 61, 0.04);
     }
 
-    .card-label {
-      font-size: 16px;
-      font-weight: 700;
+    .label {
       color: #667085;
-      letter-spacing: 0.5px;
-      margin-bottom: 18px;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 15px;
     }
 
     .number {
-      font-size: 48px;
+      font-size: 45px;
       font-weight: 800;
       color: #111827;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .description {
       color: #98a2b3;
-      font-size: 16px;
-      line-height: 1.5;
+      font-size: 14px;
     }
 
-    /* CONVERSION */
+    /* SECTION */
 
     .section {
       background: white;
-      border: 1px solid #e4e8ef;
-      border-radius: 20px;
-      padding: 32px;
-      box-shadow: 0 8px 25px rgba(20, 33, 61, 0.05);
-      margin-bottom: 28px;
+      border: 1px solid #e3e8ef;
+      border-radius: 18px;
+      padding: 28px;
+      margin-bottom: 25px;
+      box-shadow: 0 5px 20px rgba(20, 33, 61, 0.04);
     }
 
     .section-title {
-      font-size: 25px;
+      font-size: 24px;
       font-weight: 800;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
 
     .section-description {
       color: #667085;
-      font-size: 16px;
-      margin-bottom: 30px;
+      margin-bottom: 25px;
     }
 
-    .progress-container {
-      width: 100%;
-      height: 19px;
+    /* PROGRESS */
+
+    .progress {
+      height: 18px;
       background: #e9edf3;
       border-radius: 20px;
       overflow: hidden;
@@ -156,68 +155,129 @@
       width: 0%;
       background: #16a34a;
       border-radius: 20px;
-      transition: width 0.7s ease;
+      transition: width .5s;
     }
 
     .progress-labels {
       display: flex;
       justify-content: space-between;
-      margin-top: 12px;
+      margin-top: 10px;
       color: #667085;
-      font-size: 16px;
     }
 
-    .progress-current {
+    /* TABLE */
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    th {
+      text-align: left;
+      padding: 15px;
+      background: #f7f9fc;
+      color: #667085;
+      font-size: 13px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+      padding: 15px;
+      border-bottom: 1px solid #eef1f5;
+      font-size: 14px;
+    }
+
+    tr:hover {
+      background: #fafcff;
+    }
+
+    .tracking-id {
+      font-family: monospace;
+      font-size: 12px;
+      color: #475467;
+    }
+
+    .source {
       font-weight: 700;
     }
 
-    /* INFORMATION */
+    .campaign {
+      color: #475467;
+    }
+
+    .joined {
+      display: inline-block;
+      background: #dcfce7;
+      color: #15803d;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .not-joined {
+      display: inline-block;
+      background: #f1f5f9;
+      color: #64748b;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 35px;
+      color: #98a2b3;
+    }
+
+    /* INFO */
 
     .info-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 20px;
-      margin-top: 25px;
     }
 
     .info-box {
       background: #f7f9fc;
+      padding: 20px;
       border-radius: 14px;
-      padding: 22px;
     }
 
     .info-label {
       color: #667085;
-      font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 10px;
+      font-size: 13px;
+      margin-bottom: 8px;
     }
 
     .info-value {
-      color: #111827;
-      font-size: 17px;
       font-weight: 700;
     }
 
-    /* STATUS */
-
-    .status-message {
+    .status {
       text-align: center;
-      color: #667085;
       margin-top: 15px;
-      font-size: 14px;
-      min-height: 20px;
+      color: #667085;
+      font-size: 13px;
     }
 
     /* MOBILE */
 
-    @media (max-width: 900px) {
+    @media(max-width:900px) {
+
       .stats-grid {
         grid-template-columns: 1fr;
       }
 
       .header {
         flex-direction: column;
+        gap: 20px;
       }
 
       .refresh-btn {
@@ -228,197 +288,114 @@
         grid-template-columns: 1fr;
       }
 
-      .title {
-        font-size: 30px;
-      }
     }
 
-    @media (max-width: 500px) {
-      .container {
-        padding: 25px 15px;
-      }
-
-      .card,
-      .section {
-        padding: 22px;
-      }
-
-      .number {
-        font-size: 40px;
-      }
-    }
   </style>
+
 </head>
+
 
 <body>
 
-  <div class="container">
+<div class="container">
 
-    <!-- HEADER -->
 
-    <div class="header">
+  <!-- HEADER -->
 
-      <div>
-        <div class="title">
-          Meta → Telegram Tracker
-        </div>
+  <div class="header">
 
-        <div class="subtitle">
-          Track Meta ad clicks and Telegram joins in real time.
-        </div>
+    <div>
 
-        <div class="connected">
-          <span class="connected-dot"></span>
-          <span id="connectionText">Connecting...</span>
-        </div>
+      <div class="title">
+        Meta → Telegram Tracker
       </div>
 
-      <button class="refresh-btn" onclick="loadStats()">
-        ↻ Refresh Stats
-      </button>
-
-    </div>
-
-
-    <!-- STAT CARDS -->
-
-    <div class="stats-grid">
-
-      <div class="card">
-
-        <div class="card-label">
-          TOTAL CLICKS
-        </div>
-
-        <div class="number" id="totalClicks">
-          0
-        </div>
-
-        <div class="description">
-          Total people who clicked your tracking links
-        </div>
-
+      <div class="subtitle">
+        Track Meta ad clicks and Telegram joins in real time.
       </div>
 
+      <div class="connected">
 
-      <div class="card">
+        <span class="dot"></span>
 
-        <div class="card-label">
-          TELEGRAM JOINS
-        </div>
-
-        <div class="number" id="totalJoins">
-          0
-        </div>
-
-        <div class="description">
-          People who joined your Telegram channel
-        </div>
-
-      </div>
-
-
-      <div class="card">
-
-        <div class="card-label">
-          CONVERSION RATE
-        </div>
-
-        <div class="number" id="conversionRate">
-          0%
-        </div>
-
-        <div class="description">
-          Telegram joins divided by total clicks
-        </div>
-
-      </div>
-
-    </div>
-
-
-    <!-- CONVERSION PERFORMANCE -->
-
-    <div class="section">
-
-      <div class="section-title">
-        Conversion Performance
-      </div>
-
-      <div class="section-description">
-        Percentage of visitors who joined your Telegram channel.
-      </div>
-
-      <div class="progress-container">
-        <div
-          class="progress-bar"
-          id="progressBar">
-        </div>
-      </div>
-
-      <div class="progress-labels">
-
-        <span>0%</span>
-
-        <span
-          class="progress-current"
-          id="progressCurrent">
-          0%
+        <span id="connection">
+          Connecting...
         </span>
 
-        <span>100%</span>
-
       </div>
 
     </div>
 
 
-    <!-- TRACKER INFORMATION -->
+    <button
+      class="refresh-btn"
+      onclick="loadStats()"
+    >
+      ↻ Refresh Stats
+    </button>
 
-    <div class="section">
-
-      <div class="section-title">
-        Tracker Information
-      </div>
-
-      <div class="section-description">
-        Dashboard is connected to your existing Vercel statistics API.
-      </div>
-
-      <div class="info-grid">
-
-        <div class="info-box">
-
-          <div class="info-label">
-            Statistics API
-          </div>
-
-          <div class="info-value">
-            /api/stats
-          </div>
-
-        </div>
+  </div>
 
 
-        <div class="info-box">
+  <!-- STAT CARDS -->
 
-          <div class="info-label">
-            Last Updated
-          </div>
+  <div class="stats-grid">
 
-          <div
-            class="info-value"
-            id="lastUpdated">
-            —
-          </div>
+    <div class="card">
 
-        </div>
-
+      <div class="label">
+        TOTAL CLICKS
       </div>
 
       <div
-        class="status-message"
-        id="statusMessage">
+        class="number"
+        id="totalClicks"
+      >
+        0
+      </div>
+
+      <div class="description">
+        Total people who clicked your tracking links
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <div class="label">
+        TELEGRAM JOINS
+      </div>
+
+      <div
+        class="number"
+        id="totalJoins"
+      >
+        0
+      </div>
+
+      <div class="description">
+        People who joined your Telegram channel
+      </div>
+
+    </div>
+
+
+    <div class="card">
+
+      <div class="label">
+        CONVERSION RATE
+      </div>
+
+      <div
+        class="number"
+        id="conversionRate"
+      >
+        0%
+      </div>
+
+      <div class="description">
+        Telegram joins divided by total clicks
       </div>
 
     </div>
@@ -426,229 +403,487 @@
   </div>
 
 
-  <script>
+  <!-- CONVERSION -->
 
-    /*
-      ============================================
-      LOAD TRACKER STATISTICS
-      ============================================
-    */
+  <div class="section">
 
-    async function loadStats() {
+    <div class="section-title">
+      Conversion Performance
+    </div>
 
-      const connectionText =
-        document.getElementById("connectionText");
+    <div class="section-description">
+      Percentage of visitors who joined your Telegram channel.
+    </div>
 
-      const statusMessage =
-        document.getElementById("statusMessage");
+    <div class="progress">
 
-      try {
+      <div
+        class="progress-bar"
+        id="progressBar"
+      ></div>
 
-        connectionText.textContent =
-          "Connecting...";
+    </div>
 
-        statusMessage.textContent =
-          "Loading statistics...";
+    <div class="progress-labels">
+
+      <span>0%</span>
+
+      <span id="progressCurrent">
+        0%
+      </span>
+
+      <span>100%</span>
+
+    </div>
+
+  </div>
 
 
-        /*
-          Call your existing API
-        */
+  <!-- TRACKING TABLE -->
 
-        const response =
-          await fetch("/api/stats", {
-            method: "GET",
-            cache: "no-store"
-          });
+  <div class="section">
+
+    <div class="section-title">
+      Individual Tracking
+    </div>
+
+    <div class="section-description">
+      See individual Meta clicks and their campaign information.
+    </div>
 
 
-        if (!response.ok) {
+    <div class="table-wrapper">
 
-          throw new Error(
-            "Stats API returned " +
-            response.status
-          );
+      <table>
 
+        <thead>
+
+          <tr>
+
+            <th>
+              TRACKING ID
+            </th>
+
+            <th>
+              DATE / TIME
+            </th>
+
+            <th>
+              SOURCE
+            </th>
+
+            <th>
+              MEDIUM
+            </th>
+
+            <th>
+              CAMPAIGN
+            </th>
+
+            <th>
+              CONTENT
+            </th>
+
+            <th>
+              STATUS
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody id="trackingTable">
+
+          <tr>
+
+            <td
+              colspan="7"
+              class="empty"
+            >
+              Loading tracking data...
+            </td>
+
+          </tr>
+
+        </tbody>
+
+      </table>
+
+    </div>
+
+  </div>
+
+
+  <!-- INFORMATION -->
+
+  <div class="section">
+
+    <div class="section-title">
+      Tracker Information
+    </div>
+
+    <div class="section-description">
+      Dashboard is connected to your existing Vercel statistics API.
+    </div>
+
+
+    <div class="info-grid">
+
+      <div class="info-box">
+
+        <div class="info-label">
+          Statistics API
+        </div>
+
+        <div class="info-value">
+          /api/stats
+        </div>
+
+      </div>
+
+
+      <div class="info-box">
+
+        <div class="info-label">
+          Last Updated
+        </div>
+
+        <div
+          class="info-value"
+          id="lastUpdated"
+        >
+          —
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div
+      class="status"
+      id="status"
+    ></div>
+
+  </div>
+
+
+</div>
+
+
+<script>
+
+
+/* ==========================================
+   LOAD STATISTICS
+   ========================================== */
+
+async function loadStats() {
+
+  try {
+
+    document.getElementById("connection")
+      .textContent = "Loading...";
+
+
+    const response =
+      await fetch(
+        "/api/stats",
+        {
+          cache: "no-store"
         }
+      );
 
 
-        const data =
-          await response.json();
+    if (!response.ok) {
 
-
-        /*
-          Check API response
-        */
-
-        if (!data.success) {
-
-          throw new Error(
-            data.error ||
-            "Unable to load statistics"
-          );
-
-        }
-
-
-        /*
-          Get values
-        */
-
-        const totalClicks =
-          Number(data.total_clicks || 0);
-
-        const totalJoins =
-          Number(data.total_joins || 0);
-
-
-        /*
-          API already gives conversion_rate
-          Example: "25.00%"
-        */
-
-        let conversionRate =
-          data.conversion_rate || "0%";
-
-
-        /*
-          Convert percentage into number
-          for progress bar
-        */
-
-        let conversionNumber =
-          parseFloat(
-            String(conversionRate)
-              .replace("%", "")
-          );
-
-
-        if (isNaN(conversionNumber)) {
-          conversionNumber = 0;
-        }
-
-
-        /*
-          Keep progress bar between
-          0 and 100
-        */
-
-        conversionNumber =
-          Math.max(
-            0,
-            Math.min(
-              100,
-              conversionNumber
-            )
-          );
-
-
-        /*
-          Update dashboard
-        */
-
-        document.getElementById(
-          "totalClicks"
-        ).textContent =
-          totalClicks.toLocaleString();
-
-
-        document.getElementById(
-          "totalJoins"
-        ).textContent =
-          totalJoins.toLocaleString();
-
-
-        document.getElementById(
-          "conversionRate"
-        ).textContent =
-          conversionRate;
-
-
-        document.getElementById(
-          "progressCurrent"
-        ).textContent =
-          conversionRate;
-
-
-        document.getElementById(
-          "progressBar"
-        ).style.width =
-          conversionNumber + "%";
-
-
-        /*
-          Connection status
-        */
-
-        connectionText.textContent =
-          "Tracker Connected";
-
-
-        /*
-          Last updated time
-        */
-
-        const now =
-          new Date();
-
-        document.getElementById(
-          "lastUpdated"
-        ).textContent =
-          now.toLocaleString();
-
-
-        statusMessage.textContent =
-          "Statistics updated successfully.";
-
-      }
-
-
-      catch (error) {
-
-        console.error(
-          "Stats loading error:",
-          error
-        );
-
-
-        connectionText.textContent =
-          "Tracker Connection Error";
-
-
-        statusMessage.textContent =
-          "Unable to load statistics. Please try again.";
-
-
-        /*
-          Don't destroy existing values
-        */
-
-      }
+      throw new Error(
+        "API error: " + response.status
+      );
 
     }
 
 
-    /*
-      ============================================
-      LOAD STATS WHEN PAGE OPENS
-      ============================================
-    */
-
-    loadStats();
+    const data =
+      await response.json();
 
 
-    /*
-      ============================================
-      AUTO REFRESH EVERY 30 SECONDS
-      ============================================
-    */
+    if (!data.success) {
 
-    setInterval(
-      loadStats,
-      30000
+      throw new Error(
+        data.error || "Stats error"
+      );
+
+    }
+
+
+    /* TOTALS */
+
+    const clicks =
+      Number(data.total_clicks || 0);
+
+    const joins =
+      Number(data.total_joins || 0);
+
+    const rate =
+      data.conversion_rate || "0%";
+
+
+    document.getElementById(
+      "totalClicks"
+    ).textContent =
+      clicks.toLocaleString();
+
+
+    document.getElementById(
+      "totalJoins"
+    ).textContent =
+      joins.toLocaleString();
+
+
+    document.getElementById(
+      "conversionRate"
+    ).textContent =
+      rate;
+
+
+    document.getElementById(
+      "progressCurrent"
+    ).textContent =
+      rate;
+
+
+    /* PROGRESS */
+
+    let percentage =
+      parseFloat(
+        String(rate).replace("%", "")
+      );
+
+
+    if (isNaN(percentage)) {
+      percentage = 0;
+    }
+
+
+    percentage =
+      Math.max(
+        0,
+        Math.min(
+          100,
+          percentage
+        )
+      );
+
+
+    document.getElementById(
+      "progressBar"
+    ).style.width =
+      percentage + "%";
+
+
+    /* CONNECTION */
+
+    document.getElementById(
+      "connection"
+    ).textContent =
+      "Tracker Connected";
+
+
+    /* TIME */
+
+    document.getElementById(
+      "lastUpdated"
+    ).textContent =
+      new Date().toLocaleString();
+
+
+    document.getElementById(
+      "status"
+    ).textContent =
+      "Statistics updated successfully.";
+
+
+    /* TABLE */
+
+    renderTrackingTable(
+      data.clicks || []
     );
 
-  </script>
+
+  } catch (error) {
+
+    console.error(error);
+
+
+    document.getElementById(
+      "connection"
+    ).textContent =
+      "Tracker Connection Error";
+
+
+    document.getElementById(
+      "status"
+    ).textContent =
+      "Unable to load tracking data.";
+
+
+  }
+
+}
+
+
+/* ==========================================
+   TRACKING TABLE
+   ========================================== */
+
+function renderTrackingTable(clicks) {
+
+  const table =
+    document.getElementById(
+      "trackingTable"
+    );
+
+
+  if (!clicks.length) {
+
+    table.innerHTML = `
+      <tr>
+        <td colspan="7" class="empty">
+          No tracking clicks found yet.
+        </td>
+      </tr>
+    `;
+
+    return;
+
+  }
+
+
+  table.innerHTML =
+    clicks.map(click => {
+
+
+      const date =
+        click.timestamp
+          ? new Date(
+              click.timestamp
+            ).toLocaleString()
+          : "—";
+
+
+      const source =
+        click.utm_source ||
+        "—";
+
+
+      const medium =
+        click.utm_medium ||
+        "—";
+
+
+      const campaign =
+        click.utm_campaign ||
+        "—";
+
+
+      const content =
+        click.utm_content ||
+        "—";
+
+
+      return `
+
+        <tr>
+
+          <td>
+            <span class="tracking-id">
+              ${escapeHtml(
+                click.tracking_id || "—"
+              )}
+            </span>
+          </td>
+
+
+          <td>
+            ${escapeHtml(date)}
+          </td>
+
+
+          <td>
+            <span class="source">
+              ${escapeHtml(source)}
+            </span>
+          </td>
+
+
+          <td>
+            ${escapeHtml(medium)}
+          </td>
+
+
+          <td>
+            <span class="campaign">
+              ${escapeHtml(campaign)}
+            </span>
+          </td>
+
+
+          <td>
+            ${escapeHtml(content)}
+          </td>
+
+
+          <td>
+            <span class="not-joined">
+              Click Recorded
+            </span>
+          </td>
+
+        </tr>
+
+      `;
+
+    }).join("");
+
+}
+
+
+/* ==========================================
+   HTML SAFETY
+   ========================================== */
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+}
+
+
+/* ==========================================
+   START
+   ========================================== */
+
+loadStats();
+
+
+/* AUTO REFRESH */
+
+setInterval(
+  loadStats,
+  30000
+);
+
+
+</script>
+
 
 </body>
+
 </html>
